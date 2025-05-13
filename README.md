@@ -1,4 +1,4 @@
-# Wazuh Detection-as-Code: SSH Brute-force Detection
+  # Wazuh Detection-as-Code: SSH Brute-force Detection
 
 ## Overview
 
@@ -33,23 +33,60 @@ sshd[10782]: Failed password for root from 192.168.75.160 port 58372 ssh2
 ```
 
 
-Steps Followed
+📌 Project Steps
+1. Simulate a Brute-Force Attack
+Use Hydra to perform SSH brute-force attempts from an attacker machine.
 
-✅ Created a Git-based project to manage detection rules.
+      hydra -l root -P passwords.txt ssh://<victim-ip> -t 4
+This generates multiple failed SSH login logs on the target machine.
 
-🧪 Launched a brute-force attack using Hydra:
+3. Check the Generated Logs
+On the target (Wazuh) machine, view the SSH logs:
 
-        hydra -l root -P passwords.txt ssh://<target-ip> -t 4
+sudo journalctl -u ssh
+# or
+sudo cat /var/log/auth.log
+Copy one or more of the log entries showing Failed password.
 
-        
+3. Create a Custom Rule
+Edit or create the file:
 
-📂 Extracted failed login attempts from /var/log/auth.log.
+sudo nano /var/ossec/etc/rules/local_rules.xml
+Add a custom Wazuh rule to detect brute-force attempts:
 
-✍️ Wrote a detection rule for Wazuh.
+<group name="ssh,authentication_failed,">
+  <rule id="100001" level="10">
+    <if_sid>5710</if_sid>
+    <field name="srcip">192.168.75.160</field>
+    <description>SSH Brute-force attempt detected</description>
+  </rule>
+</group>
 
-🧠 Validated it using:
-            /var/ossec/bin/ossec-logtest
-📤 Committed and pushed the project to GitHub.
+
+4. Test the Rule with ossec-logtest
+Run the Wazuh test tool:
+
+      /var/ossec/bin/ossec-logtest
+Paste in one of the SSH failed login logs:
+
+      2025-05-10T12:24:41.809478+01:00 wazuh sshd[10782]: Failed password for root from 192.168.75.160 port 58372 ssh2
+If your rule works, you'll see it match with the rule ID and alert level.
+
+
+
+5. Restart Wazuh Manager
+    sudo systemctl restart wazuh-manager
+This ensures the new rule is loaded.
+
+
+
+6. Verify Detection in the Wazuh Dashboard
+Open the Wazuh web interface.
+
+Go to Security Events or Alerts.
+
+Confirm that the brute-force detection alert appears.
+
 
 
 
